@@ -6,6 +6,7 @@ import { decodeOffsetCursor, encodeOffsetCursor, parseLimit } from '@/lib/public
 import { resolveBoardIdFromKey, resolveFirstStageId } from '@/lib/public-api/resolve';
 import { normalizeEmail, normalizePhone, normalizeText } from '@/lib/public-api/sanitize';
 import { isValidUUID, sanitizeUUID } from '@/lib/supabase/utils';
+import { sendText } from '@/lib/whatsapp/evolution';
 
 export const runtime = 'nodejs';
 
@@ -214,6 +215,35 @@ export async function POST(request: Request) {
     .select('id,title,value,board_id,stage_id,contact_id,client_company_id,is_won,is_lost,loss_reason,closed_at,created_at,updated_at')
     .single();
   if (error) return NextResponse.json({ error: error.message, code: 'DB_ERROR' }, { status: 500 });
+
+  // Auto-disparo WhatsApp: se o board for o de prospecção e houver template configurado
+  const prospectingBoardKey = process.env.PROSPECTING_BOARD_KEY;
+  const wppTemplate = process.env.WHATSAPP_PROSPECTING_MESSAGE;
+  if (prospectingBoardKey && wppTemplate && parsed.data.board_key === prospectingBoardKey) {
+    // Busca o telefone do contato
+    const { data: contact } = await sb
+      .from('contacts')
+      .select('name, phone')
+      .eq('id', contactId)
+      .maybeSingle();
+
+    if (contact?.phone) {
+      const message = wppTemplate
+        .replace('{nome}', contact.name || 'amigo(a)')
+        .replace('{name}', contact.name || 'amigo(a)');
+
+      // Fire-and-forget: não bloqueia a resposta da API
+      sendText(contact.phone, message).then(result => {
+        if (!result.ok) {
+          console.error(`[WhatsApp Auto] Falha ao enviar para ${contact.phone}:`, result.error);
+        } else {
+          console.log(`[WhatsApp Auto] Mensagem enviada para ${contact.phone} (deal ${data.id})`);
+        }
+      }).catch(err => {
+        console.error('[WhatsApp Auto] Erro inesperado:', err?.message);
+      });
+    }
+  }
 
   return NextResponse.json({ data, action: 'created' }, { status: 201 });
 }
