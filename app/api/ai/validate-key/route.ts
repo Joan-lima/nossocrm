@@ -26,11 +26,14 @@ export async function POST(request: NextRequest) {
                 })
             })
 
+            const responseBody = await response.json().catch(() => ({}))
+            console.error('Anthropic validate response:', response.status, JSON.stringify(responseBody))
+
             if (response.ok) return NextResponse.json({ valid: true })
-            if (response.status === 401) return NextResponse.json({ valid: false, error: 'Chave de API inválida' })
+            if (response.status === 401) return NextResponse.json({ valid: false, error: 'Chave de API inválida (401)' })
             if (response.status === 429) return NextResponse.json({ valid: true }) // Rate limit = key válida
-            if (response.status === 400) return NextResponse.json({ valid: false, error: 'Chave de API inválida ou sem acesso ao modelo' })
-            return NextResponse.json({ valid: false, error: `Erro ao validar chave (status ${response.status})` })
+            if (response.status === 400) return NextResponse.json({ valid: false, error: `400: ${responseBody?.error?.message || 'Erro desconhecido'}` })
+            return NextResponse.json({ valid: false, error: `Erro ${response.status}: ${responseBody?.error?.message || 'Erro ao validar'}` })
         }
 
         return NextResponse.json({ valid: false, error: 'Provedor não suportado nesta rota' }, { status: 400 })
