@@ -90,32 +90,14 @@ async function validateApiKey(provider: string, apiKey: string, model: string): 
             return { valid: false, error: 'Erro ao validar chave' };
 
         } else if (provider === 'anthropic') {
-            // Anthropic validation - não tem endpoint de validação simples
-            // Fazemos uma chamada mínima
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
+            // Anthropic validation via proxy (evita CORS no browser)
+            const response = await fetch('/api/ai/validate-key', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify({
-                    model: model,
-                    max_tokens: 1,
-                    messages: [{ role: 'user', content: 'Hi' }]
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, apiKey, model })
             });
-
-            if (response.ok) {
-                return { valid: true };
-            }
-            if (response.status === 401) {
-                return { valid: false, error: 'Chave de API inválida' };
-            }
-            if (response.status === 429) {
-                return { valid: true }; // Rate limit = key válida
-            }
-            return { valid: false, error: 'Erro ao validar chave' };
+            const data = await response.json();
+            return data;
         }
 
         return { valid: false, error: 'Provedor não suportado' };
