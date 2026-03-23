@@ -9,6 +9,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (provider === 'anthropic') {
+            // Usa claude-haiku-4-5 para validação (mais barato, sempre disponível)
+            // O model selecionado pelo usuário é usado nas chamadas reais, não na validação
+            const validationModel = 'claude-haiku-4-5-20251001'
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
@@ -17,7 +20,7 @@ export async function POST(request: NextRequest) {
                     'anthropic-version': '2023-06-01'
                 },
                 body: JSON.stringify({
-                    model: model,
+                    model: validationModel,
                     max_tokens: 1,
                     messages: [{ role: 'user', content: 'Hi' }]
                 })
@@ -26,7 +29,8 @@ export async function POST(request: NextRequest) {
             if (response.ok) return NextResponse.json({ valid: true })
             if (response.status === 401) return NextResponse.json({ valid: false, error: 'Chave de API inválida' })
             if (response.status === 429) return NextResponse.json({ valid: true }) // Rate limit = key válida
-            return NextResponse.json({ valid: false, error: 'Erro ao validar chave' })
+            if (response.status === 400) return NextResponse.json({ valid: false, error: 'Chave de API inválida ou sem acesso ao modelo' })
+            return NextResponse.json({ valid: false, error: `Erro ao validar chave (status ${response.status})` })
         }
 
         return NextResponse.json({ valid: false, error: 'Provedor não suportado nesta rota' }, { status: 400 })
