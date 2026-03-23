@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
         }
 
         if (provider === 'anthropic') {
-            // Usa claude-haiku-4-5 para validação (mais barato, sempre disponível)
+            // Usa claude-3-haiku (modelo estável e amplamente disponível) para validação
             // O model selecionado pelo usuário é usado nas chamadas reais, não na validação
-            const validationModel = 'claude-haiku-4-5-20251001'
+            const validationModel = 'claude-3-haiku-20240307'
             const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
                 headers: {
